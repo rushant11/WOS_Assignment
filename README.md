@@ -1,97 +1,116 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Characters
 
-# Getting Started
+A React Native app for browsing the [Rick and Morty API](https://rickandmortyapi.com/).
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## Setup
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+```bash
+yarn install
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+cd ios && pod install && cd ..
+yarn ios
 
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
 yarn android
 ```
 
-### iOS
+**Requirements:** Node ≥ 22, JDK 17+, Android SDK API 29+
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+After changing app icons or splash assets, regenerate PNGs and rebuild natively:
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```bash
+yarn generate:brand
+yarn ios   # or yarn android
 ```
 
-Then, and every time you update your native dependencies, run:
+---
 
-```sh
-bundle exec pod install
+## Screens
+
+| Screen | Features |
+|---|---|
+| **Characters** | Infinite scroll, 300 ms debounced search, status/gender filters, animated hide-on-scroll header, pull-to-refresh, skeleton loaders |
+| **Character Detail** | Large avatar, full metadata, favourite toggle (SQLite-persisted), horizontal episode list |
+| **Episodes** | All episodes grouped by season, tap to see character avatars |
+| **Locations** | Paginated locations with infinite scroll, tap to see residents |
+| **Favourites** | 2-column grid, SQLite-backed, works offline once loaded |
+
+---
+
+## Libraries Used
+
+| Library | Purpose |
+|---|---|
+| `@tanstack/react-query` | Data fetching — `useInfiniteQuery` for lists, `useQuery` for detail |
+| `axios` | HTTP client with typed base instance and error interceptors |
+| `@reduxjs/toolkit` + `react-redux` | Favourites state synced with SQLite |
+| `@op-engineering/op-sqlite` | SQLite persistence for favourites |
+| `@react-navigation/native` | Navigation container |
+| `@react-navigation/bottom-tabs` | Bottom tab navigator |
+| `@react-navigation/native-stack` | Stack navigators per tab |
+| `react-native-screens` | Native screen components |
+| `react-native-gesture-handler` | Required by React Navigation |
+| `react-native-safe-area-context` | Safe area insets |
+| `lucide-react-native` + `react-native-svg` | Tab and UI icons |
+
+---
+
+## Architecture
+
+Feature-based folder structure:
+
+```
+src/
+├── api/              # Axios instance
+├── database/         # SQLite service (op-sqlite)
+├── features/
+│   ├── characters/   # List screen, detail screen, hooks, service
+│   ├── episodes/     # Episodes screen, detail modal, hooks, service
+│   ├── locations/    # Locations screen, detail modal, hooks, service
+│   └── favourites/   # Favourites screen, Redux slice
+├── navigation/       # AppNavigator, TabNavigator, route types
+├── shared/
+│   ├── components/   # FadeImage, skeleton loaders, ErrorScreen, EmptyState
+│   └── hooks/        # useDebounce, useScrollHeader
+├── store/            # Redux store
+├── types/            # Character, Episode, Location, ApiResponse interfaces
+└── utils/            # responsive.ts (ds/fs), colors.ts
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Brand assets (SVG sources + generation script) live in `assets/brand/` and `scripts/generate-brand-assets.mjs`.
 
-```sh
-# Using npm
-npm run ios
+---
 
-# OR using Yarn
-yarn ios
+## Technical Requirements Met
+
+- ✅ **TypeScript strict mode** — `tsconfig.json` has `strict: true`
+- ✅ **New Architecture** — `newArchEnabled=true` in `android/gradle.properties`
+- ✅ **Lazy Loading** — `React.lazy + Suspense` for all screens; `FadeImage` with skeleton placeholder and fade-in; skeleton loaders for lists
+- ✅ **Debouncing** — Custom `useDebounce<T>` hook (no lodash), 300 ms debounce on search
+- ✅ **React Query + Axios** — All API calls via typed axios instance; `useInfiniteQuery` for lists, `useQuery` for single records
+- ✅ **Redux Toolkit + SQLite** — Redux for favourites; op-sqlite for persistence across restarts
+- ✅ **Hide Header on Scroll** — `Animated` translateY via custom `useScrollHeader` hook
+- ✅ **Feature-based code structure** — Organised by domain under `src/features/`
+- ✅ **Error & Empty States** — `ErrorScreen` with retry, `EmptyState` for no results, offline detection
+- ✅ **Unit Tests** — Tests for `useDebounce`, `favouritesSlice`, and `characterService`
+- ✅ **Splash screen & app icon** — Native splash on Android/iOS with generated brand assets
+
+---
+
+## Running Tests
+
+```bash
+yarn test
+yarn jest __tests__/useDebounce.test.ts
+yarn jest __tests__/favouritesSlice.test.ts
+yarn jest __tests__/characterService.test.ts
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+---
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Known Limitations
 
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Episode grouping on the detail screen uses a heuristic (~10 episodes per season); `EpisodesScreen` uses the exact `S01E01` code format
+- Rick and Morty API rate limits (Cloudflare 429) can temporarily block image/API requests during heavy use
+- `@op-engineering/op-sqlite` requires native modules; run `pod install` on iOS after first `yarn install`

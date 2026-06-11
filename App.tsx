@@ -1,45 +1,54 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider } from 'react-redux';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { store } from './src/store';
+import { loadFavourites } from './src/features/favourites/store/favouritesSlice';
+import { initDatabase } from './src/database/sqliteService';
+import AppNavigator from './src/navigation/AppNavigator';
+import { COLORS } from './src/utils/colors';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 60 * 24,
+      networkMode: 'offlineFirst',
+      refetchOnReconnect: true,
+    },
+  },
+});
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const AppInitialiser: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  useEffect(() => {
+    const init = async (): Promise<void> => {
+      await initDatabase();
+      store.dispatch(loadFavourites());
+    };
+    void init();
+  }, []);
 
+  return <>{children}</>;
+};
+
+function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <Provider store={store}>
+        <QueryClientProvider client={queryClient}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
+            <AppInitialiser>
+              <AppNavigator />
+            </AppInitialiser>
+          </GestureHandlerRootView>
+        </QueryClientProvider>
+      </Provider>
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
