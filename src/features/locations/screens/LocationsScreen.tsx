@@ -1,10 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   FlatList,
-  Platform,
-  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -13,20 +10,18 @@ import { Location } from '../../../types/location';
 import { COLORS } from '../../../utils/colors';
 import { ds, fs } from '../../../utils/responsive';
 import { useScrollHeader } from '../../../shared/hooks/useScrollHeader';
+import { useScreenHeaderInsets } from '../../../shared/hooks/useScreenHeaderInsets';
 import { LocationRowSkeleton } from '../../../shared/components/SkeletonLoader';
 import { ErrorScreen } from '../../../shared/components/ErrorScreen';
 import { OfflineBanner } from '../../../shared/components/OfflineBanner';
+import { ScreenHeaderShell } from '../../../shared/components/ScreenHeaderShell';
 import { useLocations } from '../hooks/useLocations';
 import { LocationCard } from '../components/LocationCard';
 import LocationDetailModal from './LocationDetailModal';
 
-const HEADER_HEIGHT = ds(56);
-const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0;
-
 const LocationsScreen: React.FC = () => {
-  const { onScroll, animatedHeaderStyle } = useScrollHeader(
-    HEADER_HEIGHT + STATUSBAR_HEIGHT,
-  );
+  const { topInset, headerHeight, totalHeight } = useScreenHeaderInsets(ds(56));
+  const { onScroll, onScrollEnd, animatedHeaderStyle } = useScrollHeader(headerHeight);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
 
   const {
@@ -71,25 +66,19 @@ const LocationsScreen: React.FC = () => {
 
   if (showFullError) {
     return (
-      <ErrorScreen message={(error as Error).message} onRetry={() => void refetch()} />
+      <View style={[styles.container, { paddingTop: topInset }]}>
+        <ErrorScreen message={(error as Error).message} onRetry={() => void refetch()} />
+      </View>
     );
   }
 
-  const totalHeight = HEADER_HEIGHT + STATUSBAR_HEIGHT;
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} translucent />
-
-      <Animated.View
-        style={[
-          styles.header,
-          { height: totalHeight, paddingTop: STATUSBAR_HEIGHT },
-          animatedHeaderStyle,
-        ]}
-      >
-        <Text style={styles.headerTitle}>Locations</Text>
-      </Animated.View>
+      <ScreenHeaderShell headerHeight={headerHeight} animatedStyle={animatedHeaderStyle}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Locations</Text>
+        </View>
+      </ScreenHeaderShell>
 
       {isLoading ? (
         <View style={[styles.skeletonList, { paddingTop: totalHeight }]}>
@@ -105,6 +94,8 @@ const LocationsScreen: React.FC = () => {
           ListFooterComponent={renderFooter}
           ListHeaderComponent={showOfflineBanner ? <OfflineBanner /> : null}
           onScroll={onScroll}
+          onScrollEndDrag={onScrollEnd}
+          onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
@@ -130,18 +121,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: COLORS.background,
+  headerContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: ds(20),
     paddingBottom: ds(10),
-    justifyContent: 'flex-end',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   headerTitle: {
     fontSize: fs(20),

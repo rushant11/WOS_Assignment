@@ -1,11 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   FlatList,
   Platform,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,22 +18,22 @@ import { COLORS } from '../../../utils/colors';
 import { ds, fs } from '../../../utils/responsive';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
 import { useScrollHeader } from '../../../shared/hooks/useScrollHeader';
+import { useScreenHeaderInsets } from '../../../shared/hooks/useScreenHeaderInsets';
 import { CharacterCardSkeleton } from '../../../shared/components/SkeletonLoader';
 import { ErrorScreen } from '../../../shared/components/ErrorScreen';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { OfflineBanner } from '../../../shared/components/OfflineBanner';
+import { ScreenHeaderShell } from '../../../shared/components/ScreenHeaderShell';
 import { useCharacters } from '../hooks/useCharacters';
 import { CharacterCard } from '../components/CharacterCard';
 import { FilterModal } from '../components/FilterModal';
 import { useAppSelector } from '../../../store';
 import { CharactersStackParamList } from '../../../navigation/types';
 
-const HEADER_HEIGHT = ds(72);
-const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0;
-
 type NavProp = NativeStackNavigationProp<CharactersStackParamList, 'CharacterList'>;
 
 const CharacterListScreen: React.FC = () => {
+  const { headerHeight, totalHeight } = useScreenHeaderInsets(ds(72));
   const navigation = useNavigation<NavProp>();
   const favouriteIds = useAppSelector(s => s.favourites.items.map(c => c.id));
   const hasLoadedOnce = useRef(false);
@@ -53,9 +51,8 @@ const CharacterListScreen: React.FC = () => {
 
   const hasSearchOrFilters = !!(debouncedSearch || filters.status || filters.gender);
 
-  const { onScroll, animatedHeaderStyle, headerHeight } = useScrollHeader(
-    HEADER_HEIGHT + STATUSBAR_HEIGHT,
-  );
+  const { onScroll, onScrollEnd, resetScroll, animatedHeaderStyle } =
+    useScrollHeader(headerHeight);
 
   const {
     data,
@@ -86,6 +83,13 @@ const CharacterListScreen: React.FC = () => {
   const isSearchInProgress = isDebouncing || isSearchFetching;
   const isHeaderFixed =
     hasSearchOrFilters || isDebouncing || isError || characters.length === 0;
+  const isHeaderAnimated = !isHeaderFixed && !isRefetching;
+
+  useEffect(() => {
+    if (Platform.OS === 'ios' && !isRefetching) {
+      resetScroll();
+    }
+  }, [isRefetching, resetScroll]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -94,8 +98,9 @@ const CharacterListScreen: React.FC = () => {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleRefresh = useCallback(() => {
+    resetScroll();
     void refetch();
-  }, [refetch]);
+  }, [refetch, resetScroll]);
 
   const handleCardPress = useCallback(
     (character: Character) => {
@@ -174,8 +179,6 @@ const CharacterListScreen: React.FC = () => {
     );
   }, [isSearchInProgress, isDebouncing, debouncedSearch, hasActiveFilters]);
 
-  const totalHeight = headerHeight;
-
   const renderListContent = () => {
     if (showInitialSkeleton) {
       return (
@@ -215,7 +218,9 @@ const CharacterListScreen: React.FC = () => {
             paddingTop: characters.length === 0 ? totalHeight : totalHeight + ds(6),
           },
         ]}
-        onScroll={isHeaderFixed ? undefined : onScroll}
+        onScroll={isHeaderAnimated ? onScroll : undefined}
+        onScrollEndDrag={isHeaderAnimated ? onScrollEnd : undefined}
+        onMomentumScrollEnd={isHeaderAnimated ? onScrollEnd : undefined}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
@@ -224,7 +229,7 @@ const CharacterListScreen: React.FC = () => {
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
             progressBackgroundColor={COLORS.card}
-            progressViewOffset={totalHeight}
+            progressViewOffset={Platform.OS === 'android' ? totalHeight : 0}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -237,16 +242,11 @@ const CharacterListScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} translucent />
-
-      <Animated.View
-        style={[
-          styles.header,
-          { height: totalHeight },
-          isHeaderFixed ? undefined : animatedHeaderStyle,
-        ]}
+      <ScreenHeaderShell
+        headerHeight={headerHeight}
+        animatedStyle={isHeaderAnimated ? animatedHeaderStyle : undefined}
       >
-        <View style={[styles.headerInner, { paddingTop: STATUSBAR_HEIGHT }]}>
+        <View style={styles.headerInner}>
           <View style={styles.searchContainer}>
             <Search size={ds(16)} color={COLORS.textMuted} strokeWidth={2} />
             <TextInput
@@ -278,7 +278,7 @@ const CharacterListScreen: React.FC = () => {
             />
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </ScreenHeaderShell>
 
       {renderListContent()}
 
@@ -297,22 +297,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
   headerInner: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: ds(16),
-    paddingBottom: ds(10),
+    paddingVertical: ds(10),
     gap: ds(10),
   },
   searchContainer: {
