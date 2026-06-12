@@ -16,13 +16,28 @@ export function useScrollHeader(headerHeight: number = 56) {
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollY.setValue(event.nativeEvent.contentOffset.y);
+      scrollY.setValue(Math.max(0, event.nativeEvent.contentOffset.y));
     },
     [scrollY],
   );
 
+  const resetScroll = useCallback(() => {
+    scrollY.setValue(0);
+  }, [scrollY]);
+
+  const onScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (event.nativeEvent.contentOffset.y <= 0) {
+        resetScroll();
+      }
+    },
+    [resetScroll],
+  );
+
   return {
     onScroll,
+    onScrollEnd,
+    resetScroll,
     animatedHeaderStyle: { transform: [{ translateY }] },
     headerHeight,
   };

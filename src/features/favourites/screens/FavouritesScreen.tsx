@@ -1,9 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import {
-  Animated,
   FlatList,
-  Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,25 +13,23 @@ import { Character } from '../../../types/character';
 import { COLORS } from '../../../utils/colors';
 import { ds, fs } from '../../../utils/responsive';
 import { useScrollHeader } from '../../../shared/hooks/useScrollHeader';
+import { useScreenHeaderInsets } from '../../../shared/hooks/useScreenHeaderInsets';
 import { EmptyState } from '../../../shared/components/EmptyState';
+import { ScreenHeaderShell } from '../../../shared/components/ScreenHeaderShell';
 import { FadeImage } from '../../../shared/components/ProgressiveImage';
 import { StatusBadge } from '../../characters/components/StatusBadge';
 import { useAppDispatch, useAppSelector } from '../../../store';
 import { loadFavourites, removeFavourite } from '../store/favouritesSlice';
 import { FavouritesStackParamList } from '../../../navigation/types';
 
-const HEADER_HEIGHT = ds(56);
-const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0;
-
 type NavProp = NativeStackNavigationProp<FavouritesStackParamList, 'FavouritesList'>;
 
 const FavouritesScreen: React.FC = () => {
+  const { headerHeight, totalHeight } = useScreenHeaderInsets(ds(56));
   const dispatch = useAppDispatch();
   const navigation = useNavigation<NavProp>();
   const { items: favourites, isLoading } = useAppSelector(s => s.favourites);
-  const { onScroll, animatedHeaderStyle } = useScrollHeader(
-    HEADER_HEIGHT + STATUSBAR_HEIGHT,
-  );
+  const { onScroll, onScrollEnd, animatedHeaderStyle } = useScrollHeader(headerHeight);
 
   useEffect(() => {
     void dispatch(loadFavourites());
@@ -90,29 +85,21 @@ const FavouritesScreen: React.FC = () => {
     [handleCardPress, handleRemove],
   );
 
-  const totalHeight = HEADER_HEIGHT + STATUSBAR_HEIGHT;
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} translucent />
-
-      <Animated.View
-        style={[
-          styles.header,
-          { height: totalHeight, paddingTop: STATUSBAR_HEIGHT },
-          animatedHeaderStyle,
-        ]}
-      >
-        <View style={styles.headerInner}>
-          <Text style={styles.headerTitle}>Favourites</Text>
-          {favourites.length > 0 && (
-            <View style={styles.countBadge}>
-              <Heart size={ds(10)} color={COLORS.dead} fill={COLORS.dead} strokeWidth={0} />
-              <Text style={styles.countText}>{favourites.length}</Text>
-            </View>
-          )}
+      <ScreenHeaderShell headerHeight={headerHeight} animatedStyle={animatedHeaderStyle}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerInner}>
+            <Text style={styles.headerTitle}>Favourites</Text>
+            {favourites.length > 0 && (
+              <View style={styles.countBadge}>
+                <Heart size={ds(10)} color={COLORS.dead} fill={COLORS.dead} strokeWidth={0} />
+                <Text style={styles.countText}>{favourites.length}</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </Animated.View>
+      </ScreenHeaderShell>
 
       {favourites.length === 0 && !isLoading ? (
         <View style={[styles.emptyWrapper, { paddingTop: totalHeight }]}>
@@ -129,6 +116,8 @@ const FavouritesScreen: React.FC = () => {
           renderItem={renderItem}
           numColumns={2}
           onScroll={onScroll}
+          onScrollEndDrag={onScrollEnd}
+          onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
@@ -148,18 +137,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: COLORS.background,
+  headerContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: ds(20),
     paddingBottom: ds(10),
-    justifyContent: 'flex-end',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   headerInner: {
     flexDirection: 'row',
